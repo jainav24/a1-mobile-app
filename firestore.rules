@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // ── Users ────────────────────────────────────────────────────────────────
+    // Only the authenticated owner can read/write their own document, admins can read/write all
+    match /users/{userId} {
+      allow read, write: if (request.auth != null && request.auth.uid == userId) || isAdmin();
+    }
+
+    // ── Projects ─────────────────────────────────────────────────────────────
+    // Only the owner can read, write, or delete. Admins can read/write/delete all.
+    match /projects/{projectId} {
+      allow read, write, delete: if (request.auth != null && resource.data.userId == request.auth.uid) || isAdmin();
+
+      // Allow create: the userId being set must equal the requester's uid, or admin
+      allow create: if (request.auth != null && request.resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    // ── Assets ───────────────────────────────────────────────────────────────
+    // Any authenticated user can read active assets.
+    // Only admins can write.
+    match /assets/{assetId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // ── Orders ───────────────────────────────────────────────────────────────
+    // Authenticated users can create orders and read their own orders.
+    // Admins can read/write/delete all orders.
+    match /orders/{orderId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if (request.auth != null && resource.data.userId == request.auth.uid) || isAdmin();
+      allow write, delete: if isAdmin();
+    }
+
+    // ── Admins ───────────────────────────────────────────────────────────────
+    // Each admin can only read their own admin document.
+    match /admins/{adminId} {
+      allow read: if request.auth != null && request.auth.uid == adminId;
+      allow write: if false; // Managed via Firebase console only
+    }
+  }
+}
