@@ -1,3 +1,4 @@
+import { Alert } from 'react-native';
 import {
   doc, setDoc, getDoc, deleteDoc,
   collection, query, where, orderBy, onSnapshot,
@@ -16,6 +17,20 @@ export const saveProject = async (projectId, title, canvasState) => {
   const id = projectId || `${uid}_${Date.now()}`;
   const ref = doc(db, 'projects', id);
 
+  let finalCanvasState = { ...canvasState };
+  
+  // Size check to avoid Firestore 1MB document limit
+  const stateString = JSON.stringify(finalCanvasState);
+  if (stateString.length > 900000) {
+    if (finalCanvasState.locationPhotoBase64) {
+      finalCanvasState.locationPhotoBase64 = null;
+      Alert.alert(
+        "Size Limit Exceeded",
+        "The project is too large due to the location photo. The photo has been removed from this save to fit within storage limits."
+      );
+    }
+  }
+
   await setDoc(
     ref,
     {
@@ -23,7 +38,7 @@ export const saveProject = async (projectId, title, canvasState) => {
       userId: uid,
       title: title || 'Untitled',
       thumbnail: null,           // Storage not enabled yet
-      canvasData: canvasState,
+      canvasData: finalCanvasState,
       updatedAt: serverTimestamp(),
       createdAt: serverTimestamp(), // merge:true prevents overwrite on update
     },

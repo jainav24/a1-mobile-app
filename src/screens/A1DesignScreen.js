@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { getActiveAssets } from '../services/assetService';
 import { useSubscription } from '../hooks/useSubscription';
+import WhatsAppButton from '../components/WhatsAppButton';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const CARD_GAP = 12;
@@ -189,6 +190,7 @@ const A1DesignScreen = ({ isVisible, onClose, onAssetSelect }) => {
                     />
                 )}
             </Animated.View>
+            <WhatsAppButton />
         </Modal>
     );
 };

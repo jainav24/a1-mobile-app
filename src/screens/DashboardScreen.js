@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useSubscription } from '../hooks/useSubscription';
+import WhatsAppButton from '../components/WhatsAppButton';
 
 // ─── Mock AI Temple image generator ──────────────────────────────────────────
 // Returns 2 "enhanced temple design" results. Swap for real API (Imagen/DALL-E)
@@ -287,10 +288,10 @@ const DashboardScreen = ({ navigation }) => {
     });
 
     const designTools = [
-        { id: '1', title: 'A1 Design Engine', icon: 'color-palette', color: '#D4AF37', tint: 'rgba(212, 175, 55, 0.1)', screen: 'CanvasScreen' },
+        { id: '1', title: 'A1 Design Engine', icon: 'color-palette', color: '#D4AF37', tint: 'rgba(212, 175, 55, 0.1)', screen: 'DesignWizardScreen' },
         { id: '2', title: 'My Collection', icon: 'folder-open-outline', color: '#4A90E2', tint: 'rgba(74, 144, 226, 0.1)', screen: 'SavedProjectsScreen' },
         { id: '3', title: '3D Walkthrough', icon: 'cube-outline', color: '#50C878', tint: 'rgba(80, 200, 120, 0.1)', screen: 'WalkthroughScreen' },
-        { id: '4', title: 'Temple Assets', icon: 'apps-outline', color: '#E0115F', tint: 'rgba(224, 17, 95, 0.1)', screen: 'CanvasScreen' },
+        { id: '4', title: 'Temple Assets', icon: 'apps-outline', color: '#E0115F', tint: 'rgba(224, 17, 95, 0.1)', screen: 'DesignWizardScreen' },
     ];
 
     const recentProjects = [
@@ -323,7 +324,7 @@ const DashboardScreen = ({ navigation }) => {
                             <View style={styles.heroButtons}>
                                 <TouchableOpacity
                                     style={styles.primaryHeroBtn}
-                                    onPress={() => navigation.navigate('CanvasScreen')}
+                                    onPress={() => navigation.navigate('DesignWizardScreen')}
                                 >
                                     <View style={[styles.btnGradient, { backgroundColor: colors.primary }]}>
                                         <Text style={styles.primaryHeroBtnText}>New Project</Text>
@@ -502,7 +503,7 @@ const DashboardScreen = ({ navigation }) => {
                     <View style={[styles.fabShadow, { backgroundColor: colors.primary }]} />
                     <TouchableOpacity
                         activeOpacity={1}
-                        onPress={() => navigation.navigate('CanvasScreen')}
+                        onPress={() => navigation.navigate('DesignWizardScreen')}
                         onPressIn={() => {
                             Animated.spring(fabScale, {
                                 toValue: 0.9,
@@ -566,6 +567,7 @@ const DashboardScreen = ({ navigation }) => {
                         <Ionicons name="sparkles" size={24} color={colors.subText} style={{ opacity: 0.6 }} />
                     </TouchableOpacity>
                 </View>
+                <WhatsAppButton />
             </SafeAreaView>
         </View>
     );
@@ -806,6 +808,43 @@ const styles = StyleSheet.create({
     navItem: { alignItems: 'center', justifyContent: 'center', height: '100%', width: 50 },
     activeIndicator: { position: 'absolute', bottom: 12, width: 5, height: 5, borderRadius: 2.5 },
     navCenterItem: { position: 'absolute', left: '50%', marginLeft: -15, top: 24 },
+
+    // Magic Card
+    magicCard: {
+        width: '100%',
+        borderRadius: 20,
+        marginBottom: 20,
+        overflow: 'hidden',
+    },
+    magicBg: {
+        padding: 20,
+    },
+    magicHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    badgeNew: {
+        backgroundColor: '#D4AF37',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    badgeNewText: {
+        color: '#FFF',
+        fontSize: 10,
+        fontWeight: '800',
+    },
+    magicTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        marginBottom: 6,
+    },
+    magicSub: {
+        fontSize: 14,
+        lineHeight: 20,
+    },
 });
 
 export default DashboardScreen;

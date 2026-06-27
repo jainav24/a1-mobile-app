@@ -27,6 +27,7 @@ const SignupScreen = ({ navigation }) => {
     const { height, width } = Dimensions.get('window');
     const { moderateScale } = getResponsiveValues(width, height);
     const [name, setName] = useState('');
+    const [mobile, setMobile] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -57,8 +58,13 @@ const SignupScreen = ({ navigation }) => {
     }, []);
 
     const handleSignup = async () => {
-        const newErrors = {};
+    const newErrors = {};
         if (!name) newErrors.name = 'Full name is required';
+        if (!mobile) {
+            newErrors.mobile = 'Mobile number is required';
+        } else if (!/^[6-9]\d{9}$/.test(mobile)) {
+            newErrors.mobile = 'Enter a valid 10-digit Indian mobile number';
+        }
         if (!email) newErrors.email = 'Email is required';
         if (!password) newErrors.password = 'Password is required';
         if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
@@ -71,7 +77,8 @@ const SignupScreen = ({ navigation }) => {
         setErrors({});
         setIsLoading(true);
         try {
-            await signup(email.trim(), password, name.trim());
+            const formattedMobile = '+91' + mobile;
+            await signup(email.trim(), password, name.trim(), formattedMobile);
             navigation.replace('DashboardScreen');
         } catch (e) {
             const msg =
@@ -166,6 +173,30 @@ const SignupScreen = ({ navigation }) => {
                                 />
                             </View>
                             {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+
+                            {/* Mobile Number */}
+                            <View style={[getInputStyle('mobile'), { paddingHorizontal: 0, overflow: 'hidden' }]}>
+                                <View style={styles.prefixBox}>
+                                    <Text style={styles.prefixText}>+91</Text>
+                                </View>
+                                <TextInput
+                                    style={[styles.input, { color: colors.text, paddingHorizontal: 12 }]}
+                                    placeholder="Mobile Number"
+                                    value={mobile}
+                                    onChangeText={(val) => { 
+                                        const cleanVal = val.replace(/[^0-9]/g, '');
+                                        if (cleanVal.length <= 10) {
+                                            setMobile(cleanVal); 
+                                            setErrors({ ...errors, mobile: null }); 
+                                        }
+                                    }}
+                                    onFocus={() => setFocusedField('mobile')}
+                                    onBlur={() => setFocusedField(null)}
+                                    keyboardType="numeric"
+                                    placeholderTextColor={colors.textMuted}
+                                />
+                            </View>
+                            {errors.mobile && <Text style={styles.errorText}>{errors.mobile}</Text>}
 
                             {/* Email */}
                             <View style={getInputStyle('email')}>
@@ -434,6 +465,20 @@ const styles = StyleSheet.create({
     },
     goldLink: {
         fontWeight: '800',
+    },
+    prefixBox: {
+        backgroundColor: 'rgba(0,0,0,0.06)',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        borderRightWidth: 1,
+        borderRightColor: 'rgba(0,0,0,0.1)',
+    },
+    prefixText: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#666',
     },
 });
 

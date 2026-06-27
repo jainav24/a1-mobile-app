@@ -8,6 +8,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useTheme } from '../context/ThemeContext';
 import { useSubscription } from '../hooks/useSubscription';
+import WhatsAppButton from '../components/WhatsAppButton';
 
 const ProfileScreen = ({ navigation }) => {
     const { currentUser, logout } = useAuth();
@@ -18,6 +19,8 @@ const ProfileScreen = ({ navigation }) => {
     const { isPremium, loading: subLoading } = useSubscription();
     const [editVisible, setEditVisible] = useState(false);
     const [newName, setNewName] = useState('');
+    const [editMobileVisible, setEditMobileVisible] = useState(false);
+    const [newMobile, setNewMobile] = useState('');
 
     useEffect(() => {
         if (!currentUser) return;
@@ -34,6 +37,23 @@ const ProfileScreen = ({ navigation }) => {
             setUserData(prev => ({ ...prev, name: newName.trim() }));
             setEditVisible(false);
         } catch { Alert.alert('Error', 'Could not update name.'); }
+    };
+
+    const handleSaveMobile = async () => {
+        if (!newMobile) {
+            Alert.alert('Validation Error', 'Mobile number is required');
+            return;
+        }
+        if (!/^[6-9]\d{9}$/.test(newMobile)) {
+            Alert.alert('Validation Error', 'Enter a valid 10-digit Indian mobile number');
+            return;
+        }
+        try {
+            const formattedMobile = '+91' + newMobile;
+            await updateDoc(doc(db, 'users', currentUser.uid), { mobile: formattedMobile });
+            setUserData(prev => ({ ...prev, mobile: formattedMobile }));
+            setEditMobileVisible(false);
+        } catch { Alert.alert('Error', 'Could not update mobile number.'); }
     };
 
     const handleLogout = () => Alert.alert('Sign Out', 'Are you sure?', [
@@ -68,6 +88,7 @@ const ProfileScreen = ({ navigation }) => {
                         <View style={s.avatarCircle}><Ionicons name="person" size={50} color={isDark ? '#555' : '#DDD'} /></View>
                         <Text style={[s.userName, { color: colors.text }]}>{userData?.name || currentUser?.email}</Text>
                         <Text style={[s.userEmail, { color: colors.subText }]}>{currentUser?.email}</Text>
+                        {userData?.mobile ? <Text style={[s.userMobile, { color: colors.subText }]}>{userData.mobile}</Text> : null}
                         
                         {isPremium ? (
                             <LinearGradient colors={['#D4AF37', '#F3E5AB']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.planBadge}>
@@ -88,10 +109,20 @@ const ProfileScreen = ({ navigation }) => {
                             </TouchableOpacity>
                         )}
                         
-                        <TouchableOpacity style={s.editBtn} onPress={() => { setNewName(userData?.name || ''); setEditVisible(true); }}>
-                            <Ionicons name="pencil-outline" size={14} color="#D4AF37" />
-                            <Text style={s.editBtnText}>Edit Name</Text>
-                        </TouchableOpacity>
+                        <View style={s.editButtonsRow}>
+                            <TouchableOpacity style={s.editBtn} onPress={() => { setNewName(userData?.name || ''); setEditVisible(true); }}>
+                                <Ionicons name="pencil-outline" size={14} color="#D4AF37" />
+                                <Text style={s.editBtnText}>Edit Name</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={s.editBtn} onPress={() => { 
+                                const currentMobile = userData?.mobile ? userData.mobile.replace('+91', '') : '';
+                                setNewMobile(currentMobile); 
+                                setEditMobileVisible(true); 
+                            }}>
+                                <Ionicons name="call-outline" size={14} color="#D4AF37" />
+                                <Text style={s.editBtnText}>Edit Mobile</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                     <View style={[s.menuContainer, { backgroundColor: colors.card }]}>
@@ -122,6 +153,35 @@ const ProfileScreen = ({ navigation }) => {
                     </View>
                 </View>
             </Modal>
+
+            <Modal visible={editMobileVisible} transparent animationType="fade" onRequestClose={() => setEditMobileVisible(false)}>
+                <View style={s.modalBg}>
+                    <View style={[s.modalCard, { backgroundColor: colors.card }]}>
+                        <Text style={[s.modalTitle, { color: colors.text }]}>Edit Mobile</Text>
+                        <View style={[s.modalInput, s.mobileInputWrapper, { borderColor: colors.border }]}>
+                            <View style={s.prefixBox}>
+                                <Text style={s.prefixText}>+91</Text>
+                            </View>
+                            <TextInput 
+                                style={[s.mobileInput, { color: colors.text }]} 
+                                value={newMobile} 
+                                onChangeText={(val) => {
+                                    const cleanVal = val.replace(/[^0-9]/g, '');
+                                    if (cleanVal.length <= 10) setNewMobile(cleanVal);
+                                }} 
+                                placeholder="Mobile Number" 
+                                placeholderTextColor={colors.subText} 
+                                keyboardType="numeric" 
+                            />
+                        </View>
+                        <View style={s.modalActions}>
+                            <TouchableOpacity onPress={() => setEditMobileVisible(false)} style={s.cancelBtn}><Text style={{ color: colors.subText, fontWeight: '600' }}>Cancel</Text></TouchableOpacity>
+                            <TouchableOpacity onPress={handleSaveMobile} style={s.saveBtn}><Text style={{ color: '#FFF', fontWeight: '700' }}>Save</Text></TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+            <WhatsAppButton />
         </View>
     );
 };
@@ -142,6 +202,7 @@ const s = StyleSheet.create({
     memberSince: { fontSize: 12, marginBottom: 14 },
     upgradeBtn: { backgroundColor: '#D4AF37', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, marginBottom: 14 },
     upgradeBtnText: { color: '#FFF', fontWeight: '800', fontSize: 13 },
+    editButtonsRow: { flexDirection: 'row', gap: 10 },
     editBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(212,175,55,0.4)' },
     editBtnText: { color: '#D4AF37', fontWeight: '700', marginLeft: 6, fontSize: 13 },
     menuContainer: { borderRadius: 20, padding: 8, marginBottom: 16, elevation: 2 },
@@ -154,9 +215,14 @@ const s = StyleSheet.create({
     modalCard: { width: '85%', borderRadius: 20, padding: 24 },
     modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16 },
     modalInput: { borderWidth: 1.5, borderRadius: 12, height: 50, paddingHorizontal: 14, fontSize: 15, marginBottom: 20 },
+    mobileInputWrapper: { flexDirection: 'row', paddingHorizontal: 0, alignItems: 'center', overflow: 'hidden' },
+    prefixBox: { backgroundColor: 'rgba(0,0,0,0.06)', height: '100%', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12, borderRightWidth: 1, borderRightColor: 'rgba(0,0,0,0.1)' },
+    prefixText: { fontSize: 15, fontWeight: '700', color: '#666' },
+    mobileInput: { flex: 1, height: '100%', paddingHorizontal: 12, fontSize: 15 },
     modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
     cancelBtn: { paddingHorizontal: 16, paddingVertical: 10 },
     saveBtn: { backgroundColor: '#D4AF37', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10 },
+    userMobile: { fontSize: 13, marginBottom: 12, marginTop: -8 },
 });
 
 export default ProfileScreen;

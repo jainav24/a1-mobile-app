@@ -22,6 +22,8 @@ export const useCanvas = () => {
     const [selectedAssetType, setSelectedAssetType] = useState(null);
     const [isAssetPanelOpen, setAssetPanelOpen] = useState(false);
     const [snapEnabled, setSnapEnabled] = useState(true);
+    const [dimensions, setDimensions] = useState({ length: '', width: '', height: '', unit: 'feet' });
+    const [locationPhotoBase64, setLocationPhotoBase64] = useState(null);
 
     // ─── Undo / Redo ─────────────────────────────────────────────────────
     const historyRef = useRef([]);
@@ -236,13 +238,17 @@ export const useCanvas = () => {
             panOffset: { x: 0, y: 0 },
             gridVisible: true,
             snapEnabled,
+            dimensions,
+            locationPhotoBase64,
             elements,
         };
-    }, [snapEnabled]);
+    }, [snapEnabled, dimensions, locationPhotoBase64]);
 
     const restoreCanvasState = useCallback((canvasData) => {
         if (!canvasData) return;
         if (canvasData.snapEnabled !== undefined) setSnapEnabled(canvasData.snapEnabled);
+        if (canvasData.dimensions) setDimensions(canvasData.dimensions);
+        if (canvasData.locationPhotoBase64 !== undefined) setLocationPhotoBase64(canvasData.locationPhotoBase64);
 
         const restored = (canvasData.elements || []).map((el) => {
             if (el.type === 'asset') {
@@ -312,6 +318,8 @@ export const useCanvas = () => {
         isAssetPanelOpen, setAssetPanelOpen,
         selectAsset,
         snapEnabled, setSnapEnabled,
+        dimensions, setDimensions,
+        locationPhotoBase64, setLocationPhotoBase64,
         addShape, updateShape, deleteShape, clearCanvas,
         saveProject: saveLocal, undo, redo, canUndo, canRedo,
         commitHistory,

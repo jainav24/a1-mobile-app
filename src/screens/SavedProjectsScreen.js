@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../context/AuthContext';
 import { getUserProjects, deleteProject } from '../services/projectService';
 import { useSubscription } from '../hooks/useSubscription';
+import WhatsAppButton from '../components/WhatsAppButton';
 
 const { width } = Dimensions.get('window');
 
@@ -138,6 +139,7 @@ const SavedProjectsScreen = ({ navigation }) => {
                         <Ionicons name="add" size={32} color="#FFF" />
                     </LinearGradient>
                 </TouchableOpacity>
+                <WhatsAppButton />
             </SafeAreaView>
         </View>
     );

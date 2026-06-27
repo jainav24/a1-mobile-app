@@ -6,26 +6,37 @@
 
 const GEMINI_API_KEY = 'AIzaSyAdEho3aCwSL4rPBditmXy_0hoxx5aiFQw';
 const GEMINI_ENDPOINT =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent';
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent';
 
 /**
  * Generate an image from a text prompt using Gemini.
  *
  * @param {string} prompt  - The architectural text prompt
+ * @param {string} [imageBase64] - Optional base64 image to guide generation
  * @returns {Promise<string|null>} - "data:image/png;base64,..." or null on failure
  */
-export async function generateDesignImage(prompt) {
+export async function generateDesignImage(prompt, imageBase64) {
     try {
         const url = `${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`;
+
+        const parts = [{ text: prompt }];
+        if (imageBase64) {
+            parts.push({
+                inlineData: {
+                    mimeType: 'image/jpeg',
+                    data: imageBase64,
+                },
+            });
+        }
 
         const body = {
             contents: [
                 {
-                    parts: [{ text: prompt }],
+                    parts: parts,
                 },
             ],
             generationConfig: {
-                responseModalities: ['image', 'text'],
+                responseModalities: ['TEXT', 'IMAGE'],
             },
         };
 

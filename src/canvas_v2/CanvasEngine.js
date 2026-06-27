@@ -13,7 +13,7 @@ const SHAPE_SEL   = GOLD;
 const LABEL_CLR   = 'rgba(60,50,20,0.65)'; // warm dark for labels on white
 
 // ─── Grid ─────────────────────────────────────────────────────────────────────
-export const Grid = React.memo(({ center = { x: 0, y: 0 } }) => {
+export const Grid = React.memo(({ center = { x: 0, y: 0 }, transparent = false }) => {
     const minor = 25;
     const major = 100;
     return (
@@ -22,16 +22,16 @@ export const Grid = React.memo(({ center = { x: 0, y: 0 } }) => {
                 <Defs>
                     {/* Minor grid: soft warm gray lines */}
                     <Pattern id="minorGrid" width={minor} height={minor} patternUnits="userSpaceOnUse">
-                        <Path d={`M ${minor} 0 L 0 0 0 ${minor}`} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth="0.6" />
+                        <Path d={`M ${minor} 0 L 0 0 0 ${minor}`} fill="none" stroke={transparent ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'} strokeWidth="0.6" />
                     </Pattern>
                     {/* Major grid: slightly stronger warm gray */}
                     <Pattern id="majorGrid" width={major} height={major} patternUnits="userSpaceOnUse">
                         <Rect width={major} height={major} fill="url(#minorGrid)" />
-                        <Path d={`M ${major} 0 L 0 0 0 ${major}`} fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="0.8" />
+                        <Path d={`M ${major} 0 L 0 0 0 ${major}`} fill="none" stroke={transparent ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'} strokeWidth="0.8" />
                     </Pattern>
                 </Defs>
-                {/* Canvas fill */}
-                <Rect width="100%" height="100%" fill={CANVAS_BG} />
+                {/* Canvas fill — skip when transparent so location photo shows through */}
+                {!transparent && <Rect width="100%" height="100%" fill={CANVAS_BG} />}
                 {/* Grid overlay */}
                 <Rect width="100%" height="100%" fill="url(#majorGrid)" />
                 {/* Axis lines */}
@@ -45,7 +45,7 @@ export const Grid = React.memo(({ center = { x: 0, y: 0 } }) => {
             </Svg>
         </View>
     );
-}, (prev, next) => prev.center.x === next.center.x && prev.center.y === next.center.y);
+}, (prev, next) => prev.center.x === next.center.x && prev.center.y === next.center.y && prev.transparent === next.transparent);
 
 // ─── Snap Indicator ────────────────────────────────────────────────────────────
 export const SnapIndicator = ({ position }) => {

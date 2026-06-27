@@ -31,13 +31,14 @@ export const AuthProvider = ({ children }) => {
     return result.user;
   };
 
-  const signup = async (email, password, name) => {
+  const signup = async (email, password, name, mobile) => {
     const result = await createUserWithEmailAndPassword(auth, email, password);
     const user = result.user;
     // Create user document in Firestore
     await setDoc(doc(db, 'users', user.uid), {
       name: name || '',
       email: user.email,
+      mobile: mobile || '',
       createdAt: serverTimestamp(),
       isSubscribed: false,
       subscriptionPlan: 'free',

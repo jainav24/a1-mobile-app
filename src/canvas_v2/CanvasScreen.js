@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Dimensions, Alert, Modal, Animated as RNAnimated } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Dimensions, Alert, Modal, Animated as RNAnimated, Image, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useCanvas, snapPoint } from './hooks/useCanvas';
@@ -18,6 +18,10 @@ import { generateArchitecturalPrompt } from '../services/canvasToPrompt';
 import { generateDesignImage } from '../services/imageGenerationService';
 import { placeOrder } from '../services/orderService';
 import A1DesignScreen from '../screens/A1DesignScreen';
+import WhatsAppButton from '../components/WhatsAppButton';
+import DimensionsPanel from '../components/DimensionsPanel';
+import * as ImagePicker from 'expo-image-picker';
+import { captureRef } from 'react-native-view-shot';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const SPRING = { damping: 22, stiffness: 180, mass: 0.8 };
@@ -169,6 +173,57 @@ export default function CanvasScreen({ navigation, route }) {
         setShowMaterialSelector(true);
     }, [canvas.shapes.length, isPremium, navigation]);
 
+    const pickImage = async () => {
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert(
+                    'Gallery Permission Required',
+                    'Please enable photo library access in your phone Settings app under Expo Go permissions.',
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                quality: 0.4,
+                base64: true,
+                exif: false,
+            });
+
+            if (!result.canceled && result.assets?.[0]?.base64) {
+                canvas.setLocationPhotoBase64(result.assets[0].base64);
+                setHasUnsavedChanges(true);
+            }
+        } catch (error) {
+            console.error('Image picker error:', error);
+            Alert.alert('Error', 'Could not open image picker. Please try again.');
+        }
+    };
+
+    const handleLocationPress = () => {
+        if (canvas.locationPhotoBase64) {
+            // Photo already set — show change/remove options
+            Alert.alert(
+                'Location Photo',
+                'Change or remove the current location photo.',
+                [
+                    { text: 'Change Photo', onPress: () => pickImage() },
+                    { text: 'Remove Photo', style: 'destructive', onPress: () => {
+                        canvas.setLocationPhotoBase64(null);
+                        setHasUnsavedChanges(true);
+                    }},
+                    { text: 'Cancel', style: 'cancel' },
+                ]
+            );
+        } else {
+            // No photo — open gallery directly
+            pickImage();
+        }
+    };
+
     const handleMaterialGenerate = useCallback(async (material) => {
         setSelectedMaterial(material);
         setShowMaterialSelector(false);
@@ -190,6 +245,23 @@ export default function CanvasScreen({ navigation, route }) {
         }
     }, [canvas]);
 
+    // ── Canvas screenshot for orders ──────────────────────────────────────────
+    const canvasViewRef = useRef(null);
+
+    const captureCanvasScreenshot = async () => {
+        try {
+            if (!canvasViewRef.current) return null;
+            const uri = await captureRef(canvasViewRef, {
+                format: 'jpg',
+                quality: 0.6,
+            });
+            return uri;
+        } catch (e) {
+            console.warn('Screenshot failed:', e);
+            return null;
+        }
+    };
+
     const handleOrderNow = useCallback(() => {
         Alert.alert(
             'Place Order?',
@@ -200,10 +272,12 @@ export default function CanvasScreen({ navigation, route }) {
                     text: 'Yes, Place Order',
                     onPress: async () => {
                         try {
+                            const screenshotUri = await captureCanvasScreenshot();
                             const canvasState = canvas.getCanvasState();
                             const orderId = await placeOrder({
                                 projectId, projectTitle, material: selectedMaterial,
                                 generatedImageBase64: generatedImageUri, canvasData: canvasState,
+                                canvasScreenshotUri: screenshotUri,
                             });
                             const userEmail = auth.currentUser?.email || '';
                             Alert.alert('🎉 Order Placed!', `We'll contact you at ${userEmail} within 24 hours.`);
@@ -473,37 +547,68 @@ export default function CanvasScreen({ navigation, route }) {
                     </TouchableOpacity>
                     <TextInput
                         style={s.projName}
-                        value={canvas.projectName}
-                        onChangeText={canvas.setProjectName}
+                        value={projectTitle}
+                        onChangeText={setProjectTitle}
                         placeholder="Project Name"
                         placeholderTextColor="rgba(255,255,255,0.25)"
                     />
                 </View>
-                <View style={s.topRight}>
-                    <TouchableOpacity onPress={() => canvas.setSnapEnabled(v => !v)} style={[s.iconBtn, canvas.snapEnabled && s.activeIconBtn]}>
-                        <Ionicons name="magnet-outline" size={18} color={canvas.snapEnabled ? GOLD : 'rgba(255,255,255,0.5)'} />
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={s.topRightScroll}
+                    contentContainerStyle={s.topRight}
+                >
+                    <TouchableOpacity onPress={handleLocationPress} style={s.iconBtn}>
+                        <Ionicons name="location-outline" size={18} color={canvas.locationPhotoBase64 ? GOLD : '#FFF'} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={canvas.undo} disabled={!canvas.canUndo} style={[s.iconBtn, !canvas.canUndo && s.dimmed]}>
+                    <TouchableOpacity
+                        onPress={() => canvas.setSnapEnabled(v => !v)}
+                        style={[s.iconBtn, canvas.snapEnabled && s.activeIconBtn]}
+                    >
+                        <Ionicons
+                            name="magnet-outline"
+                            size={18}
+                            color={canvas.snapEnabled ? GOLD : 'rgba(255,255,255,0.5)'}
+                        />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={canvas.undo}
+                        disabled={!canvas.canUndo}
+                        style={[s.iconBtn, !canvas.canUndo && s.dimmed]}
+                    >
                         <Ionicons name="arrow-undo-outline" size={18} color="#FFF" />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={canvas.redo} disabled={!canvas.canRedo} style={[s.iconBtn, !canvas.canRedo && s.dimmed]}>
+                    <TouchableOpacity
+                        onPress={canvas.redo}
+                        disabled={!canvas.canRedo}
+                        style={[s.iconBtn, !canvas.canRedo && s.dimmed]}
+                    >
                         <Ionicons name="arrow-redo-outline" size={18} color="#FFF" />
                     </TouchableOpacity>
                     {canvas.shapes.length > 0 && (
-                        <TouchableOpacity onPress={handleGenerateImageTap} style={s.generateBtn}>
+                        <TouchableOpacity
+                            onPress={handleGenerateImageTap}
+                            style={[s.generateBtn, SW < 380 && s.generateBtnCompact]}
+                        >
                             <Ionicons name="sparkles" size={14} color="#0A0A1A" />
-                            <Text style={s.generateBtnTxt}>Generate</Text>
+                            {SW >= 380 && <Text style={s.generateBtnTxt}>Generate</Text>}
                         </TouchableOpacity>
                     )}
-                    <TouchableOpacity onPress={handleSave} disabled={isSaving} style={[s.saveBtn, isSaving && { opacity: 0.6 }]}>
+                    <TouchableOpacity
+                        onPress={handleSave}
+                        disabled={isSaving}
+                        style={[s.saveBtn, isSaving && { opacity: 0.6 }]}
+                    >
                         <Ionicons name="cloud-upload-outline" size={15} color="#0A0A1A" />
                         <Text style={s.saveTxt}>{isSaving ? 'Saving...' : 'Save'}</Text>
                     </TouchableOpacity>
-                </View>
+                </ScrollView>
             </View>
 
             {/* ── CANVAS ── */}
             <View
+                ref={canvasViewRef}
                 style={s.canvasWrap}
                 onLayout={e => {
                     const { width, height } = e.nativeEvent.layout;
@@ -515,7 +620,18 @@ export default function CanvasScreen({ navigation, route }) {
                 <GestureDetector gesture={composed}>
                     <View style={StyleSheet.absoluteFill}>
                         <Animated.View style={[s.canvasInner, canvasAnim]}>
-                            <Grid center={{ x: canvasSize.w * 2, y: canvasSize.h * 2 }} />
+                            {canvas.locationPhotoBase64 ? (
+                                <Image
+                                    source={{ uri: `data:image/jpeg;base64,${canvas.locationPhotoBase64}` }}
+                                    style={[
+                                        StyleSheet.absoluteFill,
+                                        { opacity: 0.6, zIndex: 0 },
+                                    ]}
+                                    resizeMode="cover"
+                                    accessible={false}
+                                />
+                            ) : null}
+                            <Grid center={{ x: canvasSize.w * 2, y: canvasSize.h * 2 }} transparent={!!canvas.locationPhotoBase64} />
                             <View style={s.svgLayer} pointerEvents="none">
                                 <Svg width="100%" height="100%">
                                     <G transform={`translate(${canvasSize.w * 2},${canvasSize.h * 2})`}>
@@ -589,7 +705,21 @@ export default function CanvasScreen({ navigation, route }) {
                         <Ionicons name="remove" size={18} color="#FFF" />
                     </TouchableOpacity>
                 </View>
+
+                {/* ── LOCATION BADGE ── */}
+                {canvas.locationPhotoBase64 && (
+                    <View style={s.locationBadge}>
+                        <Text style={s.locationBadgeEmoji}>📍</Text>
+                        <Text style={s.locationBadgeTxt}>Location Set</Text>
+                    </View>
+                )}
+
+                {/* ── WHATSAPP (positioned above dimensions bar) ── */}
+                <WhatsAppButton />
+
             </View>
+
+            <DimensionsPanel dimensions={canvas.dimensions} onDimensionsChange={canvas.setDimensions} />
 
             {/* ── ASSET LIBRARY MODAL ── */}
             <A1DesignScreen
@@ -648,11 +778,12 @@ const s = StyleSheet.create({
         backgroundColor: '#0A0A1F',
         borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
     },
-    topLeft:  { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-    topRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    topLeft:  { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
+    topRightScroll: { flexGrow: 1, flexShrink: 1, maxWidth: '65%' },
+    topRight: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 4 },
     iconBtn:  { padding: 8, borderRadius: 10 },
     activeIconBtn: { backgroundColor: 'rgba(212,175,55,0.12)' },
-    projName: { color: '#FFF', fontSize: 13, fontWeight: '700', letterSpacing: 0.4, maxWidth: 140 },
+    projName: { color: '#FFF', fontSize: 13, fontWeight: '700', letterSpacing: 0.4, maxWidth: 120 },
     saveBtn:  {
         flexDirection: 'row', alignItems: 'center', gap: 5,
         backgroundColor: GOLD, paddingHorizontal: 14, paddingVertical: 8,
@@ -664,6 +795,7 @@ const s = StyleSheet.create({
         backgroundColor: GOLD, paddingHorizontal: 10, paddingVertical: 8,
         borderRadius: 10, marginLeft: 2,
     },
+    generateBtnCompact: { paddingHorizontal: 8 },
     generateBtnTxt: { color: '#0A0A1A', fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.3 },
 
     // Generating overlay
@@ -733,4 +865,15 @@ const s = StyleSheet.create({
     },
     zoomBtn:   { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
     zoomReset: { color: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: '800' },
+    
+    // Extras
+    locationBadge: {
+        position: 'absolute', top: 56, left: 14,
+        backgroundColor: 'rgba(10,10,25,0.85)',
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 10, paddingVertical: 6,
+        borderRadius: 14, borderWidth: 1, borderColor: 'rgba(212,175,55,0.4)',
+    },
+    locationBadgeEmoji: { fontSize: 12, marginRight: 4 },
+    locationBadgeTxt: { color: '#FFF', fontSize: 10, fontWeight: '700' },
 });
